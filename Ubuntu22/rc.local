@@ -1,0 +1,62 @@
+#!/bin/bash -x
+
+if [ -e /root/.ovfEnv ]; then
+  exit
+else
+  # Hostname
+  HOSTNAME_PROPERTY=$(vmtoolsd --cmd "info-get guestinfo.ovfEnv" | grep "ovf.hostname")
+  IP_ADDRESS_PROPERTY=$(vmtoolsd --cmd "info-get guestinfo.ovfEnv" | grep "ovf.ipaddress")
+  GATEWAY_PROPERTY=$(vmtoolsd --cmd "info-get guestinfo.ovfEnv" | grep "ovf.gateway")
+  DNS_SERVER_PROPERTY=$(vmtoolsd --cmd "info-get guestinfo.ovfEnv" | grep "ovf.dns")
+  DNS_DOMAIN_PROPERTY=$(vmtoolsd --cmd "info-get guestinfo.ovfEnv" | grep "ovf.domain")
+
+  HOSTNAME=$(echo "${HOSTNAME_PROPERTY}" | awk -F 'oe:value="' '{print $2}' | awk -F '"' '{print $1}')
+  IPADDRESS=$(echo "${IP_ADDRESS_PROPERTY}" | awk -F 'oe:value="' '{print $2}' | awk -F '"' '{print $1}')
+  GATEWAY=$(echo "${GATEWAY_PROPERTY}" | awk -F 'oe:value="' '{print $2}' | awk -F '"' '{print $1}')
+
+  if [ -z "${HOSTNAME}" ]; then
+    hostnamectl set-hostname localhost # default hostname
+  else
+    hostnamectl set-hostname ${HOSTNAME}
+  fi
+
+  DNS=$(echo "${DNS_SERVER_PROPERTY}" | awk -F 'oe:value="' '{print $2}' | awk -F '"' '{print $1}')
+  if [ -z ${DNS} ]; then
+    DNS=[127.0.0.1]
+  else
+    DNS=[${DNS}]
+  fi
+
+  DNS_DOMAIN=$(echo "${DNS_DOMAIN_PROPERTY}" | awk -F 'oe:value="' '{print $2}' | awk -F '"' '{print $1}')
+  if [ -z ${DNS_DOMAIN} ]; then
+    DNS_DOMAIN=localhost
+  fi
+
+  if [[ -z "${IPADDRESS}" || -z "${GATEWAY}" ]]; then
+    cat >/etc/netplan/00-installer-config.yaml <<__CUSTOMIZE__
+network:
+  version: 2
+  ethernets:
+    ens160:
+      dhcp4: true
+__CUSTOMIZE__
+  else
+    cat >/etc/netplan/00-installer-config.yaml <<__CUSTOMIZE__
+network:
+  version: 2
+  ethernets:
+    ens160:
+      addresses:
+        - ${IPADDRESS}
+      nameservers:
+        addresses: ${DNS}
+        search:
+          - ${DNS_DOMAIN}
+      routes:
+        - to: default
+          via: ${GATEWAY}
+__CUSTOMIZE__
+    echo "DO NOT DELETE THIE FILE" >/root/.ovfEnv
+    netplan apply
+  fi
+fi
