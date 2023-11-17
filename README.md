@@ -13,7 +13,7 @@ vmtoolsd --cmd "info-get guestinfo.ovfEnv"
 ```
 ovf /path/to/file.ovf /path/to/file.ova  # ovf转换成ova
 ovf --noSSLVerify vi:/exsi_ip # 提示路径
-ovf --noSSLVerify vi/exsi_ip/path/<vm_name> <output_directory>
+ovf --noSSLVerify vi:/exsi_ip/path/<vm_name> <output_directory>
 ```
 
 # 整体流程
